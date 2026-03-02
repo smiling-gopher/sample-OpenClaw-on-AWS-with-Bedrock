@@ -491,6 +491,18 @@ CreateVPCEndpoints: false  # For cost optimization
   # Cons: Traffic goes through public internet
 ```
 
+### Sandbox Mode
+
+```yaml
+EnableSandbox: true   # Default: Docker installed
+  # Provides isolated execution for code in group chats
+  # Recommended for shared/team use
+
+EnableSandbox: false  # Skip Docker installation
+  # Faster deployment (~2 min saved)
+  # Use for personal/single-user deployments
+```
+
 ## Security Features
 
 IAM roles eliminate API key risks. CloudTrail logs every API call. VPC Endpoints keep traffic private. Docker sandbox isolates execution.
