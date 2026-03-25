@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link2, Plus, Users, User, GitBranch, Smartphone, Trash2 } from 'lucide-react';
 import { Card, StatCard, Badge, Button, PageHeader, Table, Modal, Select, Tabs, StatusDot } from '../components/ui';
-import { useBindings, useEmployees, useAgents, usePositions, useCreateBinding, useBulkProvision, useRoutingRules, useUserMappings, useCreateUserMapping, useDeleteUserMapping } from '../hooks/useApi';
+import { useBindings, useEmployees, useAgents, usePositions, useCreateBinding, useBulkProvision, useRoutingRules, useUserMappings, useCreateUserMapping, useDeleteUserMapping, useApprovePairing } from '../hooks/useApi';
 import { CHANNEL_LABELS } from '../types';
 import type { Binding, ChannelType } from '../types';
 
@@ -16,12 +16,19 @@ export default function Bindings() {
   const { data: userMappings = [] } = useUserMappings();
   const createUserMapping = useCreateUserMapping();
   const deleteUserMapping = useDeleteUserMapping();
+  const approvePairing = useApprovePairing();
   const [showCreate, setShowCreate] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [showMapping, setShowMapping] = useState(false);
+  const [showPairing, setShowPairing] = useState(false);
   const [mapChannel, setMapChannel] = useState('discord');
   const [mapUserId, setMapUserId] = useState('');
   const [mapEmpId, setMapEmpId] = useState('');
+  const [pairChannel, setPairChannel] = useState('discord');
+  const [pairCode, setPairCode] = useState('');
+  const [pairUserId, setPairUserId] = useState('');
+  const [pairEmpId, setPairEmpId] = useState('');
+  const [pairResult, setPairResult] = useState<string | null>(null);
   const [bulkPos, setBulkPos] = useState('');
   const [bulkChannel, setBulkChannel] = useState('slack');
   const [bulkResult, setBulkResult] = useState<any>(null);
@@ -120,7 +127,10 @@ export default function Bindings() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-text-secondary">Map IM platform user IDs to employee IDs. This tells the system which employee is behind each Discord/Telegram/Slack/WhatsApp account.</p>
-                <Button variant="primary" onClick={() => setShowMapping(true)}><Smartphone size={14} className="mr-1" /> Add Mapping</Button>
+                <div className="flex gap-2">
+                  <Button variant="default" onClick={() => setShowPairing(true)}>🔑 Approve Pairing</Button>
+                  <Button variant="primary" onClick={() => setShowMapping(true)}><Smartphone size={14} className="mr-1" /> Add Mapping</Button>
+                </div>
               </div>
               {userMappings.length === 0 ? (
                 <div className="text-center py-8 text-text-muted">
@@ -301,18 +311,77 @@ export default function Bindings() {
             { label: 'Telegram', value: 'telegram' },
             { label: 'Slack', value: 'slack' },
             { label: 'WhatsApp', value: 'whatsapp' },
+            { label: 'Feishu', value: 'feishu' },
           ]} />
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Platform User ID</label>
             <input value={mapUserId} onChange={e => setMapUserId(e.target.value)}
-              placeholder="e.g. 1460888812426363004 (Discord) or 987654321 (Telegram)"
+              placeholder="e.g. 1460888812426363004 (Discord) or ou_62be5691... (Feishu)"
               className="w-full rounded-lg border border-dark-border bg-dark-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none" />
-            <p className="text-xs text-text-muted mt-1">Find this in the IM platform's user profile or from the pairing log.</p>
+            <p className="text-xs text-text-muted mt-1">Find this in the pairing message the employee received from the Bot.</p>
           </div>
           <Select label="Employee" value={mapEmpId} onChange={setMapEmpId}
             options={EMPLOYEES.map(e => ({ label: `${e.name} (${e.positionName})`, value: e.id }))}
             placeholder="Select employee" />
         </div>
+      </Modal>
+
+      {/* Pairing Approve Modal */}
+      <Modal
+        open={showPairing} onClose={() => { setShowPairing(false); setPairCode(''); setPairUserId(''); setPairEmpId(''); setPairResult(null); }}
+        title="Approve IM Pairing"
+        footer={<div className="flex justify-end gap-3">
+          <Button variant="default" onClick={() => { setShowPairing(false); setPairResult(null); }}>
+            {pairResult ? 'Close' : 'Cancel'}
+          </Button>
+          {!pairResult && (
+            <Button variant="primary" disabled={!pairCode || !pairEmpId || approvePairing.isPending} onClick={() => {
+              approvePairing.mutate({ channel: pairChannel, pairingCode: pairCode, employeeId: pairEmpId, channelUserId: pairUserId }, {
+                onSuccess: (data) => {
+                  if (data.approved) {
+                    setPairResult(`✅ Approved! ${data.output || ''} ${data.mappingWritten ? '+ SSM mapping written' : ''}`);
+                  } else {
+                    setPairResult(`❌ Failed: ${data.error || 'Unknown error'}`);
+                  }
+                },
+                onError: (e: any) => setPairResult(`❌ Error: ${e.message || e}`),
+              });
+            }}>{approvePairing.isPending ? 'Approving...' : 'Approve & Bind'}</Button>
+          )}
+        </div>}
+      >
+        {pairResult ? (
+          <div className={`rounded-lg p-4 text-sm ${pairResult.startsWith('✅') ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
+            {pairResult}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">When an employee DMs the Bot for the first time, they receive a pairing code. Enter it here to approve access and bind their IM account to their employee profile.</p>
+            <Select label="IM Channel" value={pairChannel} onChange={setPairChannel} options={[
+              { label: 'Discord', value: 'discord' },
+              { label: 'Telegram', value: 'telegram' },
+              { label: 'Slack', value: 'slack' },
+              { label: 'WhatsApp', value: 'whatsapp' },
+              { label: 'Feishu', value: 'feishu' },
+            ]} />
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Pairing Code</label>
+              <input value={pairCode} onChange={e => setPairCode(e.target.value.toUpperCase())}
+                placeholder="e.g. KFDAF3GN"
+                className="w-full rounded-lg border border-dark-border bg-dark-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none font-mono tracking-wider" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Platform User ID (from pairing message)</label>
+              <input value={pairUserId} onChange={e => setPairUserId(e.target.value)}
+                placeholder="e.g. 1460888812426363004"
+                className="w-full rounded-lg border border-dark-border bg-dark-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none font-mono" />
+              <p className="text-xs text-text-muted mt-1">The "Your user id" shown in the pairing message. Used to map this IM account to the employee.</p>
+            </div>
+            <Select label="Employee" value={pairEmpId} onChange={setPairEmpId}
+              options={EMPLOYEES.map(e => ({ label: `${e.name} (${e.positionName})`, value: e.id }))}
+              placeholder="Select employee" />
+          </div>
+        )}
       </Modal>
     </div>
   );

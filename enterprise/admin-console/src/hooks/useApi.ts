@@ -515,3 +515,15 @@ export function useDeleteUserMapping() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['user-mappings'] }),
   });
 }
+
+export function useApprovePairing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { channel: string; pairingCode: string; employeeId: string; channelUserId: string }) =>
+      api.post<{ approved: boolean; output?: string; error?: string; mappingWritten?: boolean }>('/bindings/pairing-approve', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user-mappings'] });
+      qc.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+}

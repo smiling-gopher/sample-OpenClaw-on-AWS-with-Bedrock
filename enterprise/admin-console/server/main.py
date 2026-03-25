@@ -308,6 +308,36 @@ def _auto_provision_employee(emp: dict) -> dict | None:
         "status": "success",
     })
 
+    # 6. Write SSM tenant→position mapping (for AgentCore workspace assembly)
+    try:
+        stack = os.environ.get("STACK_NAME", "openclaw-multitenancy")
+        ssm = _ssm_client()
+        ssm.put_parameter(
+            Name=f"/openclaw/{stack}/tenants/{emp['id']}/position",
+            Value=pos_id, Type="String", Overwrite=True)
+        # Also write permissions based on position
+        pos_tools = {
+            "pos-sa": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+            "pos-sde": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+            "pos-devops": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+            "pos-qa": ["web_search", "shell", "file", "code_execution"],
+            "pos-ae": ["web_search", "file", "crm-query", "email-send", "calendar-check"],
+            "pos-pm": ["web_search", "file", "notion-sync", "calendar-check", "excel-gen"],
+            "pos-fa": ["web_search", "file", "excel-gen", "sap-connector"],
+            "pos-hr": ["web_search", "file", "email-send", "calendar-check"],
+            "pos-csm": ["web_search", "file", "crm-query", "email-send"],
+            "pos-legal": ["web_search", "file"],
+            "pos-exec": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+        }
+        tools = pos_tools.get(pos_id, ["web_search"])
+        import json as _json_prov
+        ssm.put_parameter(
+            Name=f"/openclaw/{stack}/tenants/{emp['id']}/permissions",
+            Value=_json_prov.dumps({"profile": "auto", "tools": tools, "role": pos_id.replace("pos-", "")}),
+            Type="String", Overwrite=True)
+    except Exception as e:
+        print(f"[auto-provision] SSM write failed for {emp['id']}: {e}")
+
     return {"agentId": agent_id, "agentName": agent_name}
 
 
@@ -719,6 +749,86 @@ def delete_user_mapping(channel: str, channelUserId: str):
         return {"deleted": True}
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+class PairingApproveRequest(BaseModel):
+    channel: str       # discord, telegram, feishu, slack, whatsapp
+    pairingCode: str   # e.g. KFDAF3GN
+    employeeId: str    # e.g. emp-carol
+    channelUserId: str = ""  # platform user ID (optional, for SSM mapping)
+
+@app.post("/api/v1/bindings/pairing-approve")
+def approve_pairing(body: PairingApproveRequest):
+    """Approve IM pairing + create user mapping in one step.
+    Calls `openclaw pairing approve <channel> <code>` via subprocess,
+    then writes SSM user mapping if channelUserId is provided."""
+    import subprocess as _sp
+
+    # 1. Run openclaw pairing approve
+    openclaw_bin = "/home/ubuntu/.nvm/versions/node/v22.22.1/bin/openclaw"
+    env = os.environ.copy()
+    env["PATH"] = "/home/ubuntu/.nvm/versions/node/v22.22.1/bin:" + env.get("PATH", "")
+    env["HOME"] = "/home/ubuntu"
+
+    try:
+        result = _sp.run(
+            [openclaw_bin, "pairing", "approve", body.channel, body.pairingCode],
+            capture_output=True, text=True, timeout=15, env=env,
+        )
+        if result.returncode != 0:
+            return {"approved": False, "error": result.stderr.strip() or result.stdout.strip()}
+        approve_output = result.stdout.strip()
+    except Exception as e:
+        return {"approved": False, "error": str(e)}
+
+    # 2. Write SSM user mapping if channelUserId provided
+    mapping_written = False
+    if body.channelUserId and body.employeeId:
+        _write_user_mapping(body.channel, body.channelUserId, body.employeeId)
+        # Also write position mapping for the numeric user ID (what H2 Proxy extracts)
+        emp = next((e for e in db.get_employees() if e["id"] == body.employeeId), None)
+        if emp and emp.get("positionId"):
+            stack = os.environ.get("STACK_NAME", "openclaw-multitenancy")
+            ssm = _ssm_client()
+            try:
+                ssm.put_parameter(
+                    Name=f"/openclaw/{stack}/tenants/{body.channelUserId}/position",
+                    Value=emp["positionId"], Type="String", Overwrite=True)
+                import json as _json_pair
+                pos_tools = {
+                    "pos-sa": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+                    "pos-sde": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+                    "pos-devops": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+                    "pos-fa": ["web_search", "file", "excel-gen", "sap-connector"],
+                    "pos-pm": ["web_search", "file", "notion-sync", "calendar-check", "excel-gen"],
+                    "pos-ae": ["web_search", "file", "crm-query", "email-send"],
+                    "pos-csm": ["web_search", "file", "crm-query", "email-send"],
+                    "pos-hr": ["web_search", "file", "email-send", "calendar-check"],
+                    "pos-legal": ["web_search", "file"],
+                    "pos-exec": ["web_search", "shell", "browser", "file", "file_write", "code_execution"],
+                }
+                tools = pos_tools.get(emp["positionId"], ["web_search"])
+                ssm.put_parameter(
+                    Name=f"/openclaw/{stack}/tenants/{body.channelUserId}/permissions",
+                    Value=_json_pair.dumps({"profile": "auto", "tools": tools, "role": emp["positionId"].replace("pos-", "")}),
+                    Type="String", Overwrite=True)
+                mapping_written = True
+            except Exception:
+                pass
+
+    # 3. Audit trail
+    db.create_audit_entry({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "eventType": "config_change",
+        "actorId": "admin",
+        "actorName": "IT Admin",
+        "targetType": "pairing",
+        "targetId": body.pairingCode,
+        "detail": f"Approved {body.channel} pairing for {body.employeeId} (code: {body.pairingCode})",
+        "status": "success",
+    })
+
+    return {"approved": True, "output": approve_output, "mappingWritten": mapping_written}
 
 
 # =========================================================================
