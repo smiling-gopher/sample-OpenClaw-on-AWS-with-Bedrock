@@ -1221,9 +1221,19 @@ def _admin_assistant_direct(message: str) -> dict:
         # Use separate HOME dir so OpenClaw reads .openclaw-admin/openclaw.json
         # This has baseUrl pointing to real Bedrock (not H2 Proxy localhost:8091)
         admin_home = "/home/ubuntu/.openclaw-admin-home"
+
+        # Prepend IT Admin identity to the message since OpenClaw overwrites SOUL.md
+        admin_prefix = (
+            "[SYSTEM INSTRUCTION: You are the IT Admin Assistant for OpenClaw Enterprise. "
+            "You run on EC2 instance i-0aa07bd9a04fa2255. You have read-only access to the system. "
+            "You can check service status, read logs, query DynamoDB/S3, but NEVER restart services, "
+            "delete files, or modify system configs. Respond in the user's language.]\n\n"
+        )
+        prefixed_message = admin_prefix + message
+
         cmd = ["sudo", "-u", "ubuntu", "env", f"PATH={env_path}", f"HOME={admin_home}",
                openclaw_bin, "agent", "--session-id", session_id,
-               "--message", message, "--json", "--timeout", "120"]
+               "--message", prefixed_message, "--json", "--timeout", "120"]
         result = _sp.run(cmd, capture_output=True, text=True, timeout=130)
 
         stdout = result.stdout.strip()
