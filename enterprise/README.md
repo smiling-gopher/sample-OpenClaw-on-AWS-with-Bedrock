@@ -8,7 +8,9 @@ Turn [OpenClaw](https://github.com/openclaw/openclaw) from a personal AI assista
 >
 > A real running instance with 7 departments, 13 sub-departments, 11 positions, 22 employees, 22 AI agents (20 personal + 2 shared), 26 role-filtered skills, and 12 knowledge documents — all backed by DynamoDB + S3 on AWS.
 >
-> This is not a mockup. Every button works, every chart reads from real data, every agent runs on Bedrock AgentCore in isolated Firecracker microVMs. Discord Bot connected with real SOUL injection verified.
+> This is not a mockup. Every button works, every chart reads from real data, every agent runs on Bedrock AgentCore in isolated Firecracker microVMs. Discord Bot connected with real SOUL injection and cross-session memory persistence verified.
+>
+> **Verified features:** 3-layer SOUL injection · Per-role tool permissions · Cross-session memory via S3 · OpenClaw Gateway mode in microVM · AgentCore Firecracker isolation
 >
 > Need a demo account? Contact [wjiad@aws](mailto:wjiad@amazon.com) to get access.
 
@@ -81,6 +83,8 @@ Each agent runs in an isolated Firecracker microVM via Bedrock AgentCore. There 
 | Shared process = blast radius risk | Firecracker isolation = hardware-level security |
 
 State persists between sessions via S3 (workspace files, memory) and DynamoDB (usage, audit). The microVM is stateless and disposable — if it crashes, the next request gets a fresh VM with the same workspace from S3.
+
+**OpenClaw Gateway runs inside each microVM** — enabling native session management, multi-turn memory compaction, and cross-session memory persistence. Zero modification to OpenClaw's source code.
 
 #### 3. Enterprise-Grade Governance
 
@@ -260,7 +264,7 @@ For employees who don't use IM tools, the Web Portal provides the same experienc
 | **SOUL Injection** | 3-layer merge (Global + Position + Personal) → OpenClaw reads merged SOUL.md at session start |
 | **Permission Control** | SOUL.md defines allowed/blocked tools per role. Plan A (pre-execution) + Plan E (post-audit) |
 | **Skill Filtering** | 26 skills with `allowedRoles`/`blockedRoles` in manifest. Finance gets excel-gen, SDE gets github-pr |
-| **Memory Persistence** | After each invocation, `server.py` appends the conversation turn to `MEMORY.md`. Watchdog syncs workspace to S3 every 60s (with `--update` to prevent zombie microVMs from overwriting). Next session loads MEMORY.md from S3. |
+| **Memory Persistence** | OpenClaw Gateway (running inside microVM) manages session memory natively. Watchdog syncs workspace to S3 every 60s. Next session loads MEMORY.md from S3 — full cross-session memory. |
 | **Real-time Usage** | Every invocation writes tokens/cost to DynamoDB. Admin Console shows per-agent breakdown |
 | **Manager Scoping** | API-level filtering — managers see only their department's data (BFS sub-department rollup) |
 | **Employee Portal** | Browser-based chat with bound agent. No IM tool dependency |

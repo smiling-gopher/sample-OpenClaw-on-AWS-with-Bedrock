@@ -240,7 +240,21 @@ function forwardToTenantRouter(channel, userId, message) {
         try {
           const result = JSON.parse(data);
           const agentResult = result.response || {};
-          const text = (typeof agentResult === 'object' ? agentResult.response : agentResult) || 'No response';
+          let text = (typeof agentResult === 'object' ? agentResult.response : agentResult) || 'No response';
+          // Handle V29+ Gateway mode: server.py may return raw Python dict str or nested result
+          if (typeof text === 'string' && (text.includes("'runId'") || text.includes('"runId"'))) {
+            try {
+              const parsed = JSON.parse(text.replace(/'/g, '"'));
+              const payloads = (parsed.result || parsed).payloads || [];
+              if (payloads[0] && payloads[0].text) text = payloads[0].text;
+            } catch(e) {
+              const m = text.match(/'text':\s*'((?:[^'\\]|\\.)*)'/);
+              if (m) text = m[1].replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+            }
+          } else if (typeof agentResult === 'object' && agentResult.result) {
+            const payloads = (agentResult.result.payloads || []);
+            if (payloads[0] && payloads[0].text) text = payloads[0].text;
+          }
           resolve(String(text));
         } catch (e) {
           resolve(data || 'Parse error');
