@@ -4,7 +4,7 @@ Turn [OpenClaw](https://github.com/openclaw/openclaw) from a personal AI assista
 
 ---
 
-## ✨ What Makes This Different
+## What Makes This Different
 
 > Most enterprise AI platforms give everyone the same generic assistant.
 > This one gives each employee **a personal AI agent with their own identity, memory, tools, and boundaries** — and gives IT full governance control from a single console.
@@ -13,22 +13,22 @@ Turn [OpenClaw](https://github.com/openclaw/openclaw) from a personal AI assista
 
 | Feature | What It Does |
 |---------|-------------|
-| **🪞 Digital Twin** | Employee turns on a public link. Anyone with the URL can chat with their AI agent while they're away — agent responds using their SOUL, memory, and expertise |
-| **⚡ Always-on Team Agents** | Shared agents run as persistent Docker containers on EC2. No cold start for help desks, HR bots, or onboarding assistants — instant response, shared memory |
-| **🧠 Three-Layer SOUL** | Global (IT) → Position (dept admin) → Personal (employee). 3 stakeholders, 3 layers, one merged identity. Same LLM — Finance Analyst vs SDE have completely different personalities and permissions |
-| **📱 Self-Service IM Pairing** | Employee scans QR code from Portal → connects Telegram / Feishu / Discord in 30 seconds. No IT ticket, no admin approval |
-| **🔀 Multi-Runtime Architecture** | Standard tier (Nova 2 Lite, scoped IAM) vs Executive tier (Claude Sonnet 4.6, full access). Different Docker images, different models, different IAM roles — infrastructure-level isolation |
-| **📚 Org Directory KB** | Auto-generated company directory (every employee, R&R, contact, agent capabilities) injected into every agent — agents know who to contact and can draft messages for you |
-| **🎯 Position → Runtime Routing** | 3-tier routing chain: employee override → position rule → default. Assign positions to runtimes from Security Center UI, propagates to all members automatically |
-| **🔧 Per-Employee Model Config** | Override model, context window, compaction settings, and response language at position OR employee level from Agent Factory → Configuration tab |
-| **📊 IM Channel Management** | Admin sees every employee's IM connections grouped by channel — when they paired, session count, last active, one-click disconnect |
-| **🛡️ Security Center** | Live AWS resource browser — ECR images, IAM roles, VPC security groups with console links. Configure runtime images and IAM roles from the UI |
-| **💾 Three-Layer Memory Guarantee** | Per-turn S3 checkpoint (1-message sessions), SIGTERM flush (idle timeout), Gateway compaction (long sessions). Same memory across Discord, Telegram, Feishu, and Portal |
-| **⚙️ Dynamic Config, Zero Redeploy** | Change model, tool permissions, SOUL content, or KB assignments → takes effect on next cold start. No container rebuild, no runtime update |
+| **Digital Twin** | Employee turns on a public link. Anyone with the URL can chat with their AI agent while they're away — agent responds using their SOUL, memory, and expertise |
+| **Always-on Team Agents** | Shared agents run as persistent Docker containers on EC2. No cold start for help desks, HR bots, or onboarding assistants — instant response, shared memory |
+| **Three-Layer SOUL** | Global (IT) → Position (dept admin) → Personal (employee). 3 stakeholders, 3 layers, one merged identity. Same LLM — Finance Analyst vs SDE have completely different personalities and permissions |
+| **Self-Service IM Pairing** | Employee scans QR code from Portal → connects Telegram / Feishu / Discord in 30 seconds. No IT ticket, no admin approval |
+| **Multi-Runtime Architecture** | Standard tier (Nova 2 Lite, scoped IAM) vs Executive tier (Claude Sonnet 4.6, full access). Different Docker images, different models, different IAM roles — infrastructure-level isolation |
+| **Org Directory KB** | Auto-generated company directory (every employee, R&R, contact, agent capabilities) injected into every agent — agents know who to contact and can draft messages for you |
+| **Position → Runtime Routing** | 3-tier routing chain: employee override → position rule → default. Assign positions to runtimes from Security Center UI, propagates to all members automatically |
+| **Per-Employee Model Config** | Override model, context window, compaction settings, and response language at position OR employee level from Agent Factory → Configuration tab |
+| **IM Channel Management** | Admin sees every employee's IM connections grouped by channel — when they paired, session count, last active, one-click disconnect |
+| **Security Center** | Live AWS resource browser — ECR images, IAM roles, VPC security groups with console links. Configure runtime images and IAM roles from the UI |
+| **Three-Layer Memory Guarantee** | Per-turn S3 checkpoint (1-message sessions), SIGTERM flush (idle timeout), Gateway compaction (long sessions). Same memory across Discord, Telegram, Feishu, and Portal |
+| **Dynamic Config, Zero Redeploy** | Change model, tool permissions, SOUL content, or KB assignments → takes effect on next cold start. No container rebuild, no runtime update |
 
 ---
 
-## 🦞 Live Demo
+## Live Demo
 
 > **https://openclaw.awspsa.com**
 >
