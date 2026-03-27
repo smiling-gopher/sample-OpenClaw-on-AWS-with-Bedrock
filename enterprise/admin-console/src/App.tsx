@@ -17,6 +17,7 @@ import AgentDetail from './pages/AgentFactory/AgentDetail';
 import SoulEditor from './pages/AgentFactory/SoulEditor';
 import SkillCatalog from './pages/Skills/SkillCatalog';
 import Bindings from './pages/Bindings';
+import IMChannels from './pages/IMChannels';
 import Monitor from './pages/Monitor/index';
 import AuditLog from './pages/AuditLog';
 import Usage from './pages/Usage';
@@ -73,6 +74,7 @@ function AppRoutes() {
       <Route path="/skills" element={user && user.role !== 'employee' ? <Layout><SkillCatalog /></Layout> : <Navigate to="/login" replace />} />
       <Route path="/knowledge" element={user && user.role !== 'employee' ? <Layout><KnowledgeBase /></Layout> : <Navigate to="/login" replace />} />
       <Route path="/bindings" element={user && user.role !== 'employee' ? <Layout><Bindings /></Layout> : <Navigate to="/login" replace />} />
+      <Route path="/channels" element={user && user.role !== 'employee' ? <Layout><IMChannels /></Layout> : <Navigate to="/login" replace />} />
       <Route path="/monitor" element={user && user.role !== 'employee' ? <Layout><Monitor /></Layout> : <Navigate to="/login" replace />} />
       <Route path="/audit" element={user && user.role !== 'employee' ? <Layout><AuditLog /></Layout> : <Navigate to="/login" replace />} />
       <Route path="/usage" element={user && user.role !== 'employee' ? <Layout><Usage /></Layout> : <Navigate to="/login" replace />} />

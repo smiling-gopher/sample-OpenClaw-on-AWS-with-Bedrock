@@ -2946,6 +2946,116 @@ def update_security_config(body: dict):
     db.set_config("security", config)
     return config
 
+# =========================================================================
+# Admin — IM Channels Management
+# =========================================================================
+
+def _run_openclaw_channels() -> list:
+    """Get live channel status from openclaw channels list CLI."""
+    import subprocess as _sp
+    openclaw_bin = "/home/ubuntu/.nvm/versions/node/v22.22.1/bin/openclaw"
+    env_path = "/home/ubuntu/.nvm/versions/node/v22.22.1/bin:/usr/local/bin:/usr/bin:/bin"
+    try:
+        result = _sp.run(
+            ["sudo", "-u", "ubuntu", "env", f"PATH={env_path}", "HOME=/home/ubuntu",
+             openclaw_bin, "channels", "list", "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.stdout:
+            raw = json.loads(result.stdout)
+            channels = []
+            for ch_type, accounts in raw.get("chat", {}).items():
+                for account in accounts:
+                    channels.append({"channel": ch_type, "account": account, "type": "chat"})
+            return channels
+    except Exception:
+        pass
+    # Fallback: parse openclaw channels list text output
+    try:
+        result = _sp.run(
+            ["sudo", "-u", "ubuntu", "env", f"PATH={env_path}", "HOME=/home/ubuntu",
+             openclaw_bin, "channels", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        channels = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("- ") and "default" in line:
+                parts = line[2:].split()
+                ch_type = parts[0].lower() if parts else "unknown"
+                configured = "configured" in line
+                linked = "not linked" not in line
+                channels.append({
+                    "channel": ch_type,
+                    "account": "default",
+                    "configured": configured,
+                    "linked": linked,
+                    "raw": line,
+                })
+        return channels
+    except Exception:
+        return []
+
+
+@app.get("/api/v1/admin/im-channels")
+def get_im_channels(authorization: str = Header(default="")):
+    """Get live IM channel status from Gateway + SSM mappings count per channel."""
+    _require_role(authorization, roles=["admin", "manager"])
+    import boto3 as _b3_ch
+    ssm = _b3_ch.client("ssm", region_name="us-east-1")
+
+    # Get all user mappings to count per channel
+    channel_counts: dict = {}
+    try:
+        prefix = _mapping_prefix()
+        resp = ssm.get_parameters_by_path(Path=prefix, Recursive=True, MaxResults=100)
+        for p in resp.get("Parameters", []):
+            name = p["Name"].replace(prefix, "")
+            for ch in ["telegram", "discord", "slack", "whatsapp", "feishu", "teams"]:
+                if name.startswith(f"{ch}__"):
+                    channel_counts[ch] = channel_counts.get(ch, 0) + 1
+                    break
+            else:
+                # Bare user_id mappings — count but don't attribute to a channel
+                pass
+    except Exception:
+        pass
+
+    # Get live Gateway channel status
+    gateway_channels = _run_openclaw_channels()
+
+    # Build enriched channel list
+    all_channels = [
+        {"id": "telegram", "label": "Telegram", "enterprise": True},
+        {"id": "discord", "label": "Discord", "enterprise": True},
+        {"id": "slack", "label": "Slack", "enterprise": True},
+        {"id": "teams", "label": "Microsoft Teams", "enterprise": True},
+        {"id": "feishu", "label": "Feishu / Lark", "enterprise": True},
+        {"id": "googlechat", "label": "Google Chat", "enterprise": True},
+        {"id": "whatsapp", "label": "WhatsApp", "enterprise": False},
+        {"id": "wechat", "label": "WeChat", "enterprise": False},
+    ]
+
+    gw_by_channel = {ch["channel"]: ch for ch in gateway_channels}
+    result = []
+    for ch in all_channels:
+        gw = gw_by_channel.get(ch["id"], {})
+        configured = bool(gw) and gw.get("configured", False)
+        linked = bool(gw) and gw.get("linked", False)
+        if gw and "raw" not in gw:
+            configured = True
+            linked = True
+        status = "connected" if (configured and linked) else \
+                 "configured" if configured else "not_connected"
+        result.append({
+            **ch,
+            "status": status,
+            "connectedEmployees": channel_counts.get(ch["id"], 0),
+            "gatewayInfo": gw.get("raw", "") if gw else "",
+        })
+    return result
+
+
 @app.get("/api/v1/settings/services")
 def get_services():
     uptime_str = _format_uptime(time.time() - _SERVER_START_TIME)

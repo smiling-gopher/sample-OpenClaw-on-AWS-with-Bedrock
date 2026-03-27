@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Users, Bot, Puzzle, Activity,
   Shield, DollarSign, Gamepad2, Settings, ChevronDown, ChevronRight,
   Bell, Search, Menu, X, CheckCircle, LogOut, User, FolderOpen, BookOpen,
-  Sun, Moon,
+  Sun, Moon, MessageSquare,
 } from 'lucide-react';
 import { useApprovals, useAlertRules, useAgents, useEmployees } from '../hooks/useApi';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +36,7 @@ const NAV: NavItem[] = [
   { label: 'Workspace', href: '/workspace', icon: <FolderOpen size={20} /> },
   { label: 'Skill Market', href: '/skills', icon: <Puzzle size={20} /> },
   { label: 'Knowledge Base', href: '/knowledge', icon: <BookOpen size={20} /> },
+  { label: 'IM Channels', href: '/channels', icon: <MessageSquare size={20} /> },
   { label: 'Monitor', href: '/monitor', icon: <Activity size={20} /> },
   { label: 'Audit Center', href: '/audit', icon: <Shield size={20} /> },
   { label: 'Approvals', href: '/approvals', icon: <CheckCircle size={20} /> },
