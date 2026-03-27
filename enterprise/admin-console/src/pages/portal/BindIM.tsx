@@ -18,7 +18,7 @@ const CHANNELS: Channel[] = [
   { id: 'discord', label: 'Discord', icon: '', description: 'Connect to ACME Agent in your company Discord server', available: true },
   { id: 'slack', label: 'Slack', icon: '', description: 'Connect to ACME Agent in your Slack workspace', available: false, note: 'coming-soon' },
   { id: 'teams', label: 'Microsoft Teams', icon: '', description: 'Connect to ACME Agent in Microsoft Teams', available: false, note: 'coming-soon' },
-  { id: 'feishu', label: 'Feishu / Lark', icon: '', description: 'Connect to the enterprise Feishu bot', available: false, note: 'coming-soon' },
+  { id: 'feishu', label: 'Feishu / Lark', icon: '', description: 'Connect to the enterprise Feishu bot', available: true },
   { id: 'googlechat', label: 'Google Chat', icon: '', description: 'Connect to ACME Agent in Google Chat', available: false, note: 'coming-soon' },
   { id: 'whatsapp', label: 'WhatsApp', icon: '', description: 'Personal messaging — not recommended for enterprise use', available: false, note: 'not-enterprise' },
   { id: 'wechat', label: 'WeChat', icon: '', description: 'Personal messaging — not recommended for enterprise use', available: false, note: 'not-enterprise' },

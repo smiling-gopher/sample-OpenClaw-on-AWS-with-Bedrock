@@ -23,7 +23,7 @@ export default function Positions() {
   const [newSkills, setNewSkills] = useState<string[]>([]);
 
   const deptOptions = DEPARTMENTS.filter(d => !d.parentId).map(d => ({ label: d.name, value: d.id }));
-  const totalMembers = POSITIONS.reduce((s, p) => s + p.memberCount, 0);
+  const totalMembers = POSITIONS.reduce((s, p) => s + (p.memberCount || 0), 0);
   const totalUnbound = EMPLOYEES.filter(e => !e.agentId).length;
 
   const getProvisionStats = (posId: string) => {
@@ -65,8 +65,8 @@ export default function Positions() {
           )},
           { key: 'skills', label: 'Default Skills', render: (p: Position) => (
             <div className="flex flex-wrap gap-1">
-              {p.defaultSkills.slice(0, 3).map(s => <Badge key={s} color="success">{s}</Badge>)}
-              {p.defaultSkills.length > 3 && <Badge>{`+${p.defaultSkills.length - 3}`}</Badge>}
+              {(p.defaultSkills || []).slice(0, 3).map(s => <Badge key={s} color="success">{s}</Badge>)}
+              {(p.defaultSkills || []).length > 3 && <Badge>{`+${(p.defaultSkills || []).length - 3}`}</Badge>}
             </div>
           )},
           { key: 'provision', label: 'Provision Status', render: (p: Position) => {
@@ -127,16 +127,16 @@ export default function Positions() {
 
               <div>
                 <p className="mb-2 text-xs font-medium text-text-muted uppercase tracking-wider">SOUL Template</p>
-                <pre className="rounded-lg bg-dark-bg border border-dark-border p-4 text-sm text-text-secondary whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">{selected.soulTemplate}</pre>
+                <pre className="rounded-lg bg-dark-bg border border-dark-border p-4 text-sm text-text-secondary whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">{selected.soulTemplate || "(No SOUL template configured)"}</pre>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="mb-2 text-xs font-medium text-text-muted uppercase tracking-wider">Default Skills</p>
-                  <div className="flex flex-wrap gap-2">{selected.defaultSkills.map(s => <Badge key={s} color="success">{s}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">{(selected.defaultSkills || []).map(s => <Badge key={s} color="success">{s}</Badge>)}</div>
                 </div>
                 <div>
                   <p className="mb-2 text-xs font-medium text-text-muted uppercase tracking-wider">Tool Allowlist</p>
-                  <div className="flex flex-wrap gap-2">{selected.toolAllowlist.map(t => <Badge key={t} color="info">{t}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">{(selected.toolAllowlist || []).map(t => <Badge key={t} color="info">{t}</Badge>)}</div>
                 </div>
               </div>
               <div>

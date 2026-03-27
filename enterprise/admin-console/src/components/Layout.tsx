@@ -21,7 +21,8 @@ interface NavItem {
   badge?: number;
 }
 
-const NAV: NavItem[] = [
+// Full admin nav
+const ADMIN_NAV: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
   {
     label: 'Organization', icon: <Building2 size={20} />,
@@ -44,6 +45,24 @@ const NAV: NavItem[] = [
   { label: 'Playground', href: '/playground', icon: <Gamepad2 size={20} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={20} /> },
 ];
+
+// Manager nav — own dept data only, no platform-wide settings
+const MANAGER_NAV: NavItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
+  {
+    label: 'My Team', icon: <Building2 size={20} />,
+    children: [
+      { label: 'Employees', href: '/org/employees' },
+      { label: 'Bindings & Routing', href: '/bindings' },
+    ],
+  },
+  { label: 'Approvals', href: '/approvals', icon: <CheckCircle size={20} /> },
+  { label: 'Monitor', href: '/monitor', icon: <Activity size={20} /> },
+  { label: 'Audit Center', href: '/audit', icon: <Shield size={20} /> },
+];
+
+// Choose nav based on role (set dynamically in Layout component)
+const NAV = ADMIN_NAV; // default — overridden per-role in component
 
 function SidebarItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const location = useLocation();
@@ -126,6 +145,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { theme, toggle: toggleTheme } = useTheme();
   const pendingApprovals = approvalsData?.pending?.length || 0;
   const activeAlerts = alertRules.filter(a => a.status === 'warning').length;
+  // Role-based nav
+  const NAV_ITEMS = user?.role === 'manager' ? MANAGER_NAV : ADMIN_NAV;
   const notifCount = pendingApprovals + activeAlerts;
 
   // Quick search results — searches pages, agents, employees
@@ -192,9 +213,19 @@ export default function Layout({ children }: { children: ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {NAV.map(item => (
+          {NAV_ITEMS.map(item => (
             <SidebarItem key={item.label} item={item} collapsed={!sidebarOpen} />
           ))}
+          {/* Manager: quick link to own Portal */}
+          {user?.role === 'manager' && (
+            <button
+              onClick={() => navigate('/portal')}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-dark-hover hover:text-text-primary transition-colors mt-2 border-t border-dark-border/30 pt-4"
+            >
+              <Users size={20} />
+              {sidebarOpen && <span>My Portal</span>}
+            </button>
+          )}
         </nav>
 
         {/* Theme toggle + Collapse */}
