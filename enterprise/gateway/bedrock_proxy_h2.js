@@ -156,10 +156,13 @@ function extractUserMessage(body) {
       const meta = JSON.parse(jsonMatch[1]);
       if (meta.sender_id) {
         userId = meta.sender_id;
-        // Detect channel from metadata or message context
-        if (meta.channel) channel = meta.channel.toLowerCase();
-        else if (meta.channel_type) channel = meta.channel_type.toLowerCase();
-        else if (userText.includes('Discord')) channel = 'discord';
+        // Detect channel from metadata — skip placeholder values like 'unknown'/'unkn'
+        const metaChannel = (meta.channel || '').toLowerCase();
+        if (metaChannel && metaChannel !== 'unknown' && metaChannel !== 'unkn') {
+          channel = metaChannel;
+        } else if (meta.channel_type) {
+          channel = meta.channel_type.toLowerCase();
+        } else if (userText.includes('Discord')) channel = 'discord';
         else if (userText.includes('Telegram')) channel = 'telegram';
         else if (userText.includes('Slack')) channel = 'slack';
         else if (userText.includes('WhatsApp')) channel = 'whatsapp';
@@ -181,7 +184,10 @@ function extractUserMessage(body) {
     if (sysJsonMatch && userId === 'unknown') {
       const meta = JSON.parse(sysJsonMatch[1]);
       if (meta.sender_id) userId = meta.sender_id;
-      if (meta.channel) channel = meta.channel.toLowerCase();
+      const sysMetaChannel = (meta.channel || '').toLowerCase();
+      if (sysMetaChannel && sysMetaChannel !== 'unknown' && sysMetaChannel !== 'unkn') {
+        channel = sysMetaChannel;
+      }
     }
     // Also try "label": "pitchshow (1484960930608578580)" format
     if (userId === 'unknown') {
