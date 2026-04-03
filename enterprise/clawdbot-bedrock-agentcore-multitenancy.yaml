@@ -397,6 +397,24 @@ Resources:
                 Condition:
                   StringLike:
                     iam:PassedToService: ecs-tasks.amazonaws.com
+        - PolicyName: DynamoDBAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: DynamoDBForAdminConsoleAndTenantRouter
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !Sub "arn:aws:dynamodb:*:${AWS::AccountId}:table/${AWS::StackName}"
+                  - !Sub "arn:aws:dynamodb:*:${AWS::AccountId}:table/${AWS::StackName}/index/*"
       Tags:
         - Key: Name
           Value: !Sub "${AWS::StackName}-instance-role"

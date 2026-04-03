@@ -416,8 +416,11 @@ aws ssm send-command \
     \"echo 'export AGENTCORE_RUNTIME_ID=$RUNTIME_ID' >> /home/ec2-user/.bashrc\",
     \"echo 'export DYNAMODB_TABLE=$DYNAMODB_TABLE' >> /home/ec2-user/.bashrc\",
     \"echo 'export DYNAMODB_REGION=$DYNAMODB_REGION' >> /home/ec2-user/.bashrc\",
+    \"apt-get update -qq && apt-get install -y python3.12-venv 2>/dev/null || true\",
+    \"pip3 install --break-system-packages --upgrade boto3 botocore 2>/dev/null || true\",
     \"systemctl restart openclaw-gateway 2>/dev/null || true\",
     \"systemctl restart openclaw-admin 2>/dev/null || true\",
+    \"systemctl restart tenant-router 2>/dev/null || true\",
     \"echo DONE\"
   ]" \
   --output text --query 'Command.CommandId' > /dev/null 2>&1 || warn "EC2 config via SSM failed (instance may not be ready yet)"
