@@ -1062,7 +1062,7 @@ def get_user_mappings():
 class UserMappingRequest(BaseModel):
     channel: str       # discord, telegram, slack, whatsapp
     channelUserId: str  # platform-specific user ID
-    employeeId: str     # emp-carol, emp-w5, etc.
+    employeeId: str     # emp-carol, emp-ryan, etc.
 
 @app.post("/api/v1/bindings/user-mappings")
 def create_user_mapping(body: UserMappingRequest):
