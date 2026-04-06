@@ -372,7 +372,8 @@ export default function BindIM() {
             <button
               className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
               onClick={() => {
-                window.open('/api/v1/portal/gateway/ui/', '_blank');
+                const token = localStorage.getItem('openclaw_token') || '';
+                window.open(`/api/v1/portal/gateway/ui/?auth_token=${encodeURIComponent(token)}`, '_blank');
               }}
             >
               <Zap size={14} /> Open Gateway Console

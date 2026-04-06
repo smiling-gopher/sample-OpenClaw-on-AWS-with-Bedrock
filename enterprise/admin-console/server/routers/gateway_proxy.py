@@ -237,11 +237,34 @@ def get_gateway_access(authorization: str = Header(default="")):
     }
 
 
+def _authenticate_proxy(request: Request, authorization: str) -> _UserInfo:
+    """Authenticate for gateway proxy via: Authorization header, ?auth_token= query, or gw_session cookie.
+    On success with auth_token query param, sets a session cookie so sub-resource requests work."""
+    # 1. Try Authorization header
+    if authorization and authorization.startswith("Bearer "):
+        return _require_employee_auth(authorization)
+    # 2. Try ?auth_token= query param (window.open from browser)
+    qt = request.query_params.get("auth_token", "")
+    if qt:
+        return _require_employee_auth(f"Bearer {qt}")
+    # 3. Try gw_session cookie
+    cookie_token = request.cookies.get("gw_session", "")
+    if cookie_token:
+        return _require_employee_auth(f"Bearer {cookie_token}")
+    raise HTTPException(401, "Missing authorization")
+
+
 @router.api_route("/ui/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_gateway(path: str, request: Request, authorization: str = Header(default="")):
     """Reverse proxy to the always-on agent's OpenClaw Gateway UI.
-    Injects the gateway token server-side — employee never sees it."""
-    user = _require_employee_auth(authorization)
+    Injects the gateway token server-side — employee never sees it.
+
+    Auth flow for browser navigation (window.open):
+      1. Frontend opens /ui/?auth_token=JWT — first request carries JWT in query
+      2. Response sets gw_session cookie with the JWT
+      3. Sub-resource requests (CSS/JS/images) use the cookie automatically
+    """
+    user = _authenticate_proxy(request, authorization)
     result = _get_cached_gateway(user.employee_id)
 
     if not result:
@@ -255,9 +278,11 @@ async def proxy_gateway(path: str, request: Request, authorization: str = Header
         separator = "&" if "?" in target else "?"
         target = f"{target}{separator}token={token}"
 
-    # Forward query params (except our auth header)
-    query = str(request.query_params)
-    if query:
+    # Forward query params (strip auth_token — internal only, not for upstream)
+    filtered_params = {k: v for k, v in request.query_params.items() if k != "auth_token"}
+    if filtered_params:
+        from urllib.parse import urlencode
+        query = urlencode(filtered_params)
         separator = "&" if "?" in target else "?"
         target = f"{target}{separator}{query}"
 
@@ -285,12 +310,24 @@ async def proxy_gateway(path: str, request: Request, authorization: str = Header
             if k.lower() not in excluded_headers
         }
 
-        return Response(
+        response = Response(
             content=resp.content,
             status_code=resp.status_code,
             headers=response_headers,
             media_type=resp.headers.get("content-type"),
         )
+
+        # Set session cookie on first request (auth_token in query)
+        # so sub-resource requests (CSS/JS/images) authenticate via cookie
+        qt = request.query_params.get("auth_token", "")
+        if qt:
+            response.set_cookie(
+                key="gw_session", value=qt,
+                max_age=3600, httponly=True, samesite="lax",
+                path="/api/v1/portal/gateway/",
+            )
+
+        return response
 
     except _requests.exceptions.ConnectionError:
         raise HTTPException(502, "Gateway container not reachable. It may be starting up.")
