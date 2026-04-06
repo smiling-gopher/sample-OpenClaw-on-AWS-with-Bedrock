@@ -50,10 +50,11 @@ export default function AgentList() {
   const [newPos, setNewPos] = useState('');
   const [newEmp, setNewEmp] = useState('');
   const [newChannels, setNewChannels] = useState<string[]>(['discord']);
+  const [newDeployMode, setNewDeployMode] = useState<'serverless' | 'always-on-ecs'>('serverless');
   const [filterText, setFilterText] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState('serverless');
 
   const posOptions = POSITIONS.map(p => ({ label: p.name, value: p.id }));
   // Filter to unbound employees; if a position is selected, further filter by that position
@@ -294,7 +295,7 @@ export default function AgentList() {
                 </div>
                 <div>
                   <button onClick={() => navigate(`/agents/${a.id}`)} className="text-sm font-medium text-primary-light hover:underline">{a.name}</button>
-                  <p className="text-xs text-text-muted">{a.employeeId ? '1:1 Personal' : 'N:1 Shared'}</p>
+                  <p className="text-xs text-text-muted">{a.deployMode === 'always-on-ecs' ? '⚡ Always-on' : 'Serverless'}{a.employeeName ? ` · ${a.employeeName}` : ''}</p>
                 </div>
               </div>
             )},
@@ -358,9 +359,10 @@ export default function AgentList() {
                       channels: [defaultCh],
                       defaultChannel: defaultCh,
                       skills: pos?.defaultSkills || [],
+                      deployMode: newDeployMode,
                     } as any);
                   }
-                  setShowCreate(false); setNewName(''); setNewPos(''); setNewEmp(''); setCreateStep(0);
+                  setShowCreate(false); setNewName(''); setNewPos(''); setNewEmp(''); setNewDeployMode('serverless'); setCreateStep(0);
                 }}>Create Agent</Button>
               )}
             </div>
@@ -376,14 +378,32 @@ export default function AgentList() {
               const pos = POSITIONS.find(p => p.id === v);
               if (pos) setNewName(`${pos.name} Agent`);
             }} options={posOptions} placeholder="Select position" description="Inherits SOUL, Skills, and tool permissions" />
-            <Select label="Bind Employee" value={newEmp} onChange={v => {
+            <Select label="Assign Employee" value={newEmp} onChange={v => {
               setNewEmp(v);
-              // Auto-generate name when employee changes
               const pos = POSITIONS.find(p => p.id === newPos);
               const emp = EMPLOYEES.find(e => e.id === v);
               if (pos && emp) setNewName(`${pos.name} Agent - ${emp.name}`);
-            }} options={empOptions} placeholder="Select employee (only showing unbound)" />
+            }} options={empOptions} placeholder="Select employee (only showing unassigned)" />
             <Input label="Agent Name" value={newName} onChange={setNewName} placeholder="Auto-generated from position + employee" description="Auto-filled — edit if you want a custom name" />
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-text-secondary">Deployment Mode</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className={`rounded-xl border p-3 text-left transition-all ${newDeployMode === 'serverless' ? 'border-primary bg-primary/5' : 'border-dark-border/40 bg-surface-dim hover:border-dark-border'}`}
+                  onClick={() => setNewDeployMode('serverless')}
+                >
+                  <p className="text-sm font-medium text-text-primary">Serverless</p>
+                  <p className="text-xs text-text-muted mt-0.5">AgentCore microVM. Scales to zero, pay-per-use. Default for most employees.</p>
+                </button>
+                <button
+                  className={`rounded-xl border p-3 text-left transition-all ${newDeployMode === 'always-on-ecs' ? 'border-primary bg-primary/5' : 'border-dark-border/40 bg-surface-dim hover:border-dark-border'}`}
+                  onClick={() => setNewDeployMode('always-on-ecs')}
+                >
+                  <p className="text-sm font-medium text-text-primary">Always-on (Fargate)</p>
+                  <p className="text-xs text-text-muted mt-0.5">Persistent ECS container. For scheduled tasks, direct IM bots, instant response.</p>
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {createStep === 1 && (
@@ -418,7 +438,7 @@ export default function AgentList() {
               <div><p className="text-xs text-text-muted">Position</p><p className="text-sm font-medium">{POSITIONS.find(p => p.id === newPos)?.name || '(not selected)'}</p></div>
               <div><p className="text-xs text-text-muted">Employee</p><p className="text-sm font-medium">{EMPLOYEES.find(e => e.id === newEmp)?.name || '(not selected)'}</p></div>
               <div><p className="text-xs text-text-muted">Default Channel</p><p className="text-sm font-medium">{POSITIONS.find(p => p.id === newPos)?.defaultChannel || 'discord'}</p></div>
-              <div><p className="text-xs text-text-muted">Mode</p><p className="text-sm font-medium">1:1 Personal</p></div>
+              <div><p className="text-xs text-text-muted">Deployment</p><p className="text-sm font-medium">{newDeployMode === 'always-on-ecs' ? '⚡ Always-on (Fargate)' : 'Serverless (AgentCore)'}</p></div>
             </div>
           </div>
         )}
