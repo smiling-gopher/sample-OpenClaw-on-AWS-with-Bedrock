@@ -61,7 +61,7 @@ RUN mkdir -p /app/.compile-cache && \
 # Stage 2: Runtime - minimal image with only needed artifacts
 FROM --platform=linux/arm64 python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends jq \
+RUN apt-get update && apt-get install -y --no-install-recommends jq curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AWS CLI via pip (not binary copy — avoids Python version mismatch)
