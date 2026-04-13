@@ -224,8 +224,8 @@ Agent Factory → Daniel Kim → Deploy Mode
   │   Tier: [Executive ▾]  (from position)  │
   │   Model: Claude Sonnet 4.6              │
   │   Guardrail: None                       │
-  │   Resource: 0.25 vCPU / 0.5 GB          │
-  │   Est. Cost: $7.42/month                │
+  │   Resource: 0.5 vCPU / 1 GB (Executive) │
+  │   Est. Cost: ~$27-47/month              │
   │                                         │
   │ [Save]                                  │
   └─────────────────────────────────────────┘
@@ -428,22 +428,34 @@ echo "$EFS_ID:/ /mnt/efs efs _netdev,tls 0 0" >> /etc/fstab
 
 ## 8. Cost Model
 
+### Per-Tier Resource Configuration
+
+| Tier | CPU | Memory | 月费 | 理由 |
+|------|-----|--------|------|------|
+| **Standard** (AE,CSM,HR,PM) | 0.25 vCPU | 512 MB | $7.42 | 日常对话，web_search，轻量任务 |
+| **Restricted** (FA,Legal) | 0.25 vCPU | 512 MB | $7.42 | 只读权限，不跑代码，不需要大内存 |
+| **Engineering** (SDE,DevOps,QA) | 0.5 vCPU | 1 GB | $16.34 | shell/code_execution，npm install，编译，文件处理 |
+| **Executive** (Exec,SA) | 0.5 vCPU | 1 GB | $16.34 | 多工具并行，deep-research，大上下文窗口模型 |
+
+Admin 开通时可以调整（Fargate 支持 0.25-16 vCPU / 512MB-120GB）。
+AgentCore microVM 不可调（平台固定分配，无 API），这是 OOM 时无法解决的原因。
+
 ### Per-Employee Always-On Cost
 
-| Resource | 0.25 vCPU / 0.5 GB | 0.5 vCPU / 1 GB |
-|----------|-------------------|-----------------|
-| Fargate (ARM64, 24/7) | $7.42/mo | $16.34/mo |
-| EFS (est. 100MB) | ~$0.03/mo | ~$0.03/mo |
-| EFS Access Point | Free | Free |
-| Bedrock tokens | Usage-based | Usage-based |
+| 员工 Tier | Fargate | EFS | Bedrock | 合计（估） |
+|----------|---------|-----|---------|----------|
+| Standard | $7.42 | ~$0.03 | ~$2-5 | **~$10-13/mo** |
+| Restricted | $7.42 | ~$0.03 | ~$1-3 | **~$9-11/mo** |
+| Engineering | $16.34 | ~$0.03 | ~$5-15 | **~$22-32/mo** |
+| Executive | $16.34 | ~$0.03 | ~$10-30 | **~$27-47/mo** |
 
 ### Scale Estimates
 
-| 规模 | Serverless Only | 10% Always-On | 50% Always-On |
-|------|----------------|---------------|---------------|
-| 20 人 | ~$80/mo | +$15 (2人) = $95 | +$74 (10人) = $154 |
-| 100 人 | ~$120/mo | +$74 (10人) = $194 | +$371 (50人) = $491 |
-| 500 人 | ~$200/mo | +$371 (50人) = $571 | +$1,855 (250人) = $2,055 |
+| 规模 | Serverless Only | 10% Always-On (混合) | 50% Always-On |
+|------|----------------|---------------------|---------------|
+| 20 人 | ~$80/mo | +$22 (2人) = ~$102 | +$110 (10人) = ~$190 |
+| 100 人 | ~$120/mo | +$110 (10人) = ~$230 | +$550 (50人) = ~$670 |
+| 500 人 | ~$200/mo | +$550 (50人) = ~$750 | +$2,750 (250人) = ~$2,950 |
 
 ---
 
