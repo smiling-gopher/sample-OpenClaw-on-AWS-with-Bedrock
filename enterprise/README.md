@@ -18,7 +18,7 @@ Then follow Steps 4-6 in [README_ENTERPRISE.md](../README_ENTERPRISE.md) to depl
 
 | Resource | Path |
 |----------|------|
-| Interactive UI Guide | [docs/ui-guide.html](docs/ui-guide.html) — open locally in browser |
+| Interactive UI Guide | [ui-guide.html](https://aws-samples.github.io/sample-OpenClaw-on-AWS-with-Bedrock/ui-guide.html) |
 | Full documentation | [README_ENTERPRISE.md](../README_ENTERPRISE.md) |
 | CloudFormation template | [clawdbot-bedrock-agentcore-multitenancy.yaml](clawdbot-bedrock-agentcore-multitenancy.yaml) |
 | Environment registry | [docs/environments.md](docs/environments.md) |
