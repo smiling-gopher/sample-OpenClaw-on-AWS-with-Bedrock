@@ -151,6 +151,16 @@ CFN_PARAMS="$CFN_PARAMS ParameterKey=CreateVPCEndpoints,ParameterValue=${CREATE_
 CFN_PARAMS="$CFN_PARAMS ParameterKey=ExistingVpcId,ParameterValue=${EXISTING_VPC_ID}"
 CFN_PARAMS="$CFN_PARAMS ParameterKey=ExistingSubnetId,ParameterValue=${EXISTING_SUBNET_ID}"
 
+
+# Template is 70KB — exceeds 51,200 byte inline limit, must use S3
+info "  Uploading CloudFormation template to S3..."
+STAGING_BUCKET="openclaw-deploy-772603144957-us-east-1"
+aws s3 cp "$SCRIPT_DIR/clawdbot-bedrock-agentcore-multitenancy.yaml" \
+  "s3://${STAGING_BUCKET}/cfn/clawdbot-bedrock-agentcore-multitenancy.yaml" \
+  --region "$REGION" --quiet
+TEMPLATE_URL="https://${STAGING_BUCKET}.s3.${REGION}.amazonaws.com/cfn/clawdbot-bedrock-agentcore-multitenancy.yaml"
+success "  Template uploaded"
+
 # Try to create; if stack exists, do an update instead
 STACK_STATUS=$(aws cloudformation describe-stacks \
   --stack-name "$STACK_NAME" --region "$REGION" \
@@ -160,7 +170,7 @@ if [ "$STACK_STATUS" = "DOES_NOT_EXIST" ]; then
   info "  Creating new stack (takes ~8 min)..."
   aws cloudformation create-stack \
     --stack-name "$STACK_NAME" \
-    --template-body file://"$SCRIPT_DIR/clawdbot-bedrock-agentcore-multitenancy.yaml" \
+    --template-url "$TEMPLATE_URL" \
     --capabilities CAPABILITY_NAMED_IAM \
     --region "$REGION" \
     --parameters $CFN_PARAMS
@@ -170,7 +180,7 @@ else
   info "  Stack exists ($STACK_STATUS) — updating..."
   aws cloudformation update-stack \
     --stack-name "$STACK_NAME" \
-    --template-body file://"$SCRIPT_DIR/clawdbot-bedrock-agentcore-multitenancy.yaml" \
+    --template-url "$TEMPLATE_URL" \
     --capabilities CAPABILITY_NAMED_IAM \
     --region "$REGION" \
     --parameters $CFN_PARAMS 2>/dev/null && \
@@ -377,6 +387,9 @@ done
 # Create ECS Fargate services for always-on deployment mode (one per security tier).
 # Services start with desiredCount=0 — admin enables per-position via Security Center.
 info "[4.5/8] Setting up Fargate tier services..."
+if [ "$SKIP_SERVICES" = "true" ]; then
+  info "  Skipping Fargate tier services (--skip-services)"
+else
 
 ECS_CLUSTER="${STACK_NAME}-always-on"
 BASE_TASK_DEF="${STACK_NAME}-always-on-agent"
@@ -404,29 +417,19 @@ else
 
   # Define tiers: name:model:guardrailId
   # desiredCount=0 for all — admin activates via Security Center
-  declare -A TIER_MODELS=(
-    [standard]="${MODEL:-global.amazon.nova-2-lite-v1:0}"
-    [restricted]="us.deepseek.r1-v1:0"
-    [engineering]="global.anthropic.claude-sonnet-4-5-20250929-v1:0"
-    [executive]="global.anthropic.claude-sonnet-4-6"
-  )
-  declare -A TIER_GUARDRAILS=(
-    [standard]="${GUARDRAIL_MODERATE_ID:-}"
-    [restricted]="${GUARDRAIL_STRICT_ID:-}"
-    [engineering]=""
-    [executive]=""
-  )
-
   for TIER_NAME in standard restricted engineering executive; do
     SERVICE_NAME="${STACK_NAME}-tier-${TIER_NAME}"
-    TIER_MODEL="${TIER_MODELS[$TIER_NAME]}"
-    TIER_GUARDRAIL="${TIER_GUARDRAILS[$TIER_NAME]}"
-
-    # Register tier-specific task definition with tier env vars
     TIER_FAMILY="${STACK_NAME}-tier-${TIER_NAME}"
-
+    case "$TIER_NAME" in
+      standard)    TIER_MODEL="${MODEL:-global.amazon.nova-2-lite-v1:0}"; TIER_GUARDRAIL="${GUARDRAIL_MODERATE_ID:-}" ;;
+      restricted)  TIER_MODEL="us.deepseek.r1-v1:0";                     TIER_GUARDRAIL="${GUARDRAIL_STRICT_ID:-}" ;;
+      engineering) TIER_MODEL="global.anthropic.claude-sonnet-4-5-20250929-v1:0"; TIER_GUARDRAIL="" ;;
+      executive)   TIER_MODEL="global.anthropic.claude-sonnet-4-6";       TIER_GUARDRAIL="" ;;
+    esac
     # Build container environment JSON
     TIER_ENV=$(cat <<ENVJSON
+
+
 [
   {"name":"STACK_NAME","value":"${STACK_NAME}"},
   {"name":"AWS_REGION","value":"${REGION}"},
@@ -512,6 +515,7 @@ print(json.dumps(defs))
   done
 
   success "Fargate tier services configured (desiredCount=0, activate via Security Center)"
+  fi
 fi
 
 # ── Step 5: Upload SOUL templates and knowledge docs ──────────────────────────
