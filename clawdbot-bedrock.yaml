@@ -41,8 +41,8 @@ Parameters:
 
   InstanceType:
     Type: String
-    Default: "r7g.medium"
-    Description: "Graviton (ARM) recommended. r7g/r6g = memory-optimized (recommended for stability). c7g = compute-optimized. t4g = burstable."
+    Default: "c7g.large"
+    Description: "Graviton (ARM) recommended. c7g = compute-optimized (recommended, 2 vCPU for Node.js + sandbox). r7g/r6g = memory-optimized. t4g = burstable."
     AllowedValues:
       - "t4g.small"
       - "t4g.medium"
@@ -1020,8 +1020,8 @@ Resources:
                   openclaw doctor --fix 2>&1 || echo "openclaw doctor completed with warnings"
                   '
 
-                  # Install health check + auto-update cron
-                  echo "[post] Installing health check and auto-update..."
+                  # Install health check cron
+                  echo "[post] Installing health check..."
                   cat > /opt/openclaw/health-check.sh << 'HEALTHCHECK'
                   #!/bin/bash
                   # OpenClaw Gateway Health Check
@@ -1088,49 +1088,8 @@ Resources:
                   HEALTHCHECK
                   chmod +x /opt/openclaw/health-check.sh
 
-                  cat > /opt/openclaw/auto-update.sh << 'AUTOUPDATE'
-                  #!/bin/bash
-                  # OpenClaw Weekly Auto-Update
-                  export HOME=/home/ubuntu
-                  export NVM_DIR="$HOME/.nvm"
-                  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                  export XDG_RUNTIME_DIR=/run/user/1000
-                  export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-
-                  LOG="/var/log/openclaw-update.log"
-
-                  CURRENT=$(openclaw --version 2>/dev/null || echo "unknown")
-                  echo "$(date) Starting update check (current: $CURRENT)" >> $LOG
-
-                  # Update OpenClaw (pin to same major year to avoid breaking changes)
-                  MAJOR_YEAR=$(echo $CURRENT | cut -d. -f1)
-                  UPDATE_TAG="latest"
-                  if [ "$MAJOR_YEAR" != "unknown" ]; then
-                    UPDATE_TAG="^$MAJOR_YEAR"
-                  fi
-
-                  ARCH=$(uname -m)
-                  if [ "$ARCH" = "aarch64" ]; then
-                    npm install -g openclaw@$UPDATE_TAG --timeout=300000 --ignore-scripts >> $LOG 2>&1
-                  else
-                    npm install -g openclaw@$UPDATE_TAG --timeout=300000 >> $LOG 2>&1
-                  fi
-
-                  NEW=$(openclaw --version 2>/dev/null || echo "unknown")
-                  if [ "$CURRENT" != "$NEW" ]; then
-                    echo "$(date) Updated: $CURRENT -> $NEW, restarting gateway" >> $LOG
-                    sudo -H -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/1000; export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus; systemctl --user restart openclaw-gateway.service" 2>>$LOG
-                    openclaw doctor --fix >> $LOG 2>&1 || true
-                  else
-                    echo "$(date) Already on latest: $CURRENT" >> $LOG
-                  fi
-                  AUTOUPDATE
-                  chmod +x /opt/openclaw/auto-update.sh
-
                   # Health check every 5 minutes
                   (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/openclaw/health-check.sh") | crontab -
-                  # Auto-update weekly on Sundays at 4 AM UTC
-                  (crontab -l 2>/dev/null; echo "0 4 * * 0 /opt/openclaw/auto-update.sh") | crontab -
 
                   # Install and configure CloudWatch Agent (conditional)
                   if [ "${EnableMonitoring}" = "true" ]; then
@@ -1160,8 +1119,7 @@ Resources:
                           "files": {
                             "collect_list": [
                               { "file_path": "/var/log/openclaw-setup.log", "log_group_name": "/openclaw/setup", "log_stream_name": "{instance_id}", "retention_in_days": 30 },
-                              { "file_path": "/var/log/openclaw-health.log", "log_group_name": "/openclaw/health", "log_stream_name": "{instance_id}", "retention_in_days": 14 },
-                              { "file_path": "/var/log/openclaw-update.log", "log_group_name": "/openclaw/update", "log_stream_name": "{instance_id}", "retention_in_days": 30 }
+                              { "file_path": "/var/log/openclaw-health.log", "log_group_name": "/openclaw/health", "log_stream_name": "{instance_id}", "retention_in_days": 14 }
                             ]
                           }
                         }
@@ -1312,19 +1270,19 @@ Outputs:
     Description: "Estimated monthly cost (USD)"
     Value: !Sub
       - |
-        EC2 (${InstanceType}): ~$25-50 (r7g.medium ~$30, Graviton 20% cheaper than x86)
+        EC2 (${InstanceType}): ~$50-60 (c7g.large ~$58, Graviton 20% cheaper than x86)
         EBS (30GB x2): ~$4.80
         VPC Endpoints: ${EndpointCost}
         Monitoring: ${MonitoringCost}
         Bedrock: Pay-per-use
         Total: ~${TotalCost}/month
-        Note: Memory-optimized (r7g/r6g) recommended for stability. Swap, health checks, and auto-updates are always enabled at no extra cost.
+        Note: Compute-optimized (c7g, 2 vCPU) recommended for running Node.js + Docker sandbox concurrently. Swap, health checks, and OS security patches are always enabled at no extra cost.
       - EndpointCost: !If [CreateEndpoints, "~$29 ($0.01/hour x 5 endpoints)", "$0 (disabled)"]
         MonitoringCost: !If [EnableCW, "~$4 (CloudWatch Agent + detailed monitoring + alarms + logs)", "$0 (disabled)"]
         TotalCost: !If 
           - CreateEndpoints
-          - !If [EnableCW, "$59-84", "$55-80"]
-          - !If [EnableCW, "$34-55", "$30-55"]
+          - !If [EnableCW, "$91-96", "$87-92"]
+          - !If [EnableCW, "$63-67", "$58-63"]
 
   InstanceArchitecture:
     Description: "Instance architecture"
